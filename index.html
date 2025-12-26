@@ -268,6 +268,8 @@ class GoGame {
         this.koPoint = null;
         this.lastMove = null;
         this.aiTimeout = null;
+        
+        this.statusTimeout = null;
 
         this.initBoardGrid(); 
         this.resetGame();     
@@ -372,7 +374,7 @@ class GoGame {
             }
 
         } else {
-            this.showStatus(result.message);
+            this.showStatus(result.message, 1000);
         }
     }
 
@@ -632,8 +634,23 @@ class GoGame {
         document.querySelectorAll('.stone').forEach(s => s.classList.remove('group-highlight'));
     }
 
-    showStatus(msg) {
-        document.getElementById('status-msg').innerText = msg;
+    showStatus(msg, duration = 0) {
+        const statusEl = document.getElementById('status-msg');
+        statusEl.innerText = msg;
+
+    // 如果之前有正在倒數的清除指令，先取消它 (避免訊息閃爍或提前消失)
+        if (this.statusTimeout) {
+            clearTimeout(this.statusTimeout);
+            this.statusTimeout = null;
+        }
+
+    // 如果有設定 duration (例如 1000 毫秒)，則設定定時清除
+        if (duration > 0) {
+            this.statusTimeout = setTimeout(() => {
+                statusEl.innerText = ""; // 時間到後清空文字
+                this.statusTimeout = null;
+            }, duration);
+        }
     }
 
     endGame() {
