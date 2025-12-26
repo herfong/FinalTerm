@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1132950 -FinalTerm</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #ecf0f1;
+        }
+
+        h1 {
+            margin-top: 20px;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .game-info {
+            background: rgba(0,0,0,0.6);
+            padding: 15px 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.2rem;
+            border: 1px solid #7f8c8d;
+            min-width: 300px;
+        }
+
+        /* 棋盤容器 */
+        .board-container {
+            position: relative;
+            width: 450px;
+            height: 450px;
+            background-color: #e6b87d;
+            background-image: 
+                linear-gradient(#000 1px, transparent 1px),
+                linear-gradient(90deg, #000 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-position: 25px 25px; 
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
+            border-radius: 5px;
+            padding: 25px;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        .star-point {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #000;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+        }
+
+        .grid-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            grid-template-rows: repeat(9, 1fr);
+            z-index: 10;
+        }
+
+        .intersection {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .intersection:hover::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            background-color: rgba(0,0,0,0.2);
+            border-radius: 50%;
+        }
+
+        /* 棋子樣式 */
+        .stone {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+            z-index: 20;
+            transform: scale(1);
+            transition: transform 0.2s, opacity 0.3s;
+            cursor: default;
+            pointer-events: auto;
+        }
+        
+        .stone.new-stone {
+            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .stone.black {
+            background: radial-gradient(circle at 30% 30%, #444, #000);
+        }
+        
+        .stone.white {
+            background: radial-gradient(circle at 30% 30%, #fff, #dcdcdc);
+        }
+
+        .stone.last-move::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px; height: 12px;
+            border: 3px solid rgba(231, 76, 60, 0.9);
+            border-radius: 50%;
+            box-shadow: 0 0 5px rgba(231, 76, 60, 0.6);
+        }
+
+        /* UX 動畫與提示 */
+        .stone.captured-anim {
+            transform: scale(0.1) !important;
+            opacity: 0;
+            transition: transform 0.3s ease-in, opacity 0.3s ease-in;
+        }
+
+        .stone.atari {
+            box-shadow: 0 0 8px 4px rgba(231, 76, 60, 0.6);
+            animation: pulseAtari 1.5s infinite;
+        }
+
+        @keyframes pulseAtari {
+            0% { box-shadow: 0 0 5px 2px rgba(231, 76, 60, 0.4); }
+            50% { box-shadow: 0 0 12px 6px rgba(231, 76, 60, 0.8); }
+            100% { box-shadow: 0 0 5px 2px rgba(231, 76, 60, 0.4); }
+        }
+
+        .stone.group-highlight {
+            filter: brightness(1.3) sepia(0.2);
+            transform: scale(1.05);
+            z-index: 25;
+            border: 2px solid #f1c40f;
+            box-sizing: border-box;
+        }
+
+        /* 控制區 */
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            flex-wrap: wrap; /* 避免按鈕太多擠壓 */
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            font-size: 1rem;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: #bdc3c7;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #3498db;
+            color: white;
+            transition: background 0.3s;
+            height: 40px; 
+            margin-top: auto; 
+        }
+
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #95a5a6; cursor: not-allowed; }
+        button.pass-btn { background-color: #e67e22; }
+        button.pass-btn:hover { background-color: #d35400; }
+        
+        .status-msg {
+            color: #f1c40f; 
+            font-weight: bold;
+            margin-top: 5px;
+            min-height: 1.5em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>線上圍棋(中國規則)</h1>
+    
+    <div class="game-info">
+        <div id="turn-indicator">當前回合: 黑棋 (User)</div>
+        <div class="status-msg" id="status-msg">新局開始，請下子</div>
+        <div id="score-display">黑方獲虜: 0 | 白方獲虜: 0</div>
+    </div>
+
+    <div class="board-container" id="board-container">
+        <div class="star-point" style="left: 225px; top: 225px;"></div>
+        <div class="star-point" style="left: 125px; top: 125px;"></div> 
+        <div class="star-point" style="left: 325px; top: 125px;"></div> 
+        <div class="star-point" style="left: 125px; top: 325px;"></div> 
+        <div class="star-point" style="left: 325px; top: 325px;"></div> 
+        <div class="grid-layer" id="grid-layer"></div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="mode-select">對戰模式:</label>
+            <select id="mode-select">
+                <option value="ai">人機對戰 (Vs AI)</option>
+                <option value="pvp">雙人對弈 (Vs Human)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="handicap-select">讓子設定:</label>
+            <select id="handicap-select">
+                <option value="0">分先 (無讓子)</option>
+                <option value="2">讓 2 子</option>
+                <option value="4">讓 4 子</option>
+            </select>
+        </div>
+
+        <button onclick="game.resetGame()">重新開始</button>
+        <button class="pass-btn" onclick="game.pass()">虛手 (Pass)</button>
+    </div>
+
+<script>
+class GoGame {
+    constructor() {
+        this.size = 9;
+        this.board = []; 
+        this.currentPlayer = 1; // 1: Black, 2: White
+        this.gameMode = 'ai';   // 'ai' or 'pvp'
+        this.prisoners = { 1: 0, 2: 0 };
+        this.passes = 0;
+        this.gameOver = false;
+        this.koPoint = null;
+        this.lastMove = null;
+        this.aiTimeout = null;
+
+        this.initBoardGrid(); 
+        this.resetGame();     
+    }
+
+    initBoardGrid() {
+        this.gridLayer = document.getElementById('grid-layer');
+        this.gridLayer.innerHTML = '';
+        for(let r=0; r<9; r++) {
+            for(let c=0; c<9; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'intersection';
+                cell.dataset.row = r;
+                cell.dataset.col = c;
+                cell.onclick = () => this.handleUserClick(r, c);
+                this.gridLayer.appendChild(cell);
+            }
+        }
+    }
+
+    resetGame() {
+        if (this.aiTimeout) clearTimeout(this.aiTimeout);
+
+        this.board = Array(9).fill().map(() => Array(9).fill(0));
+        this.prisoners = { 1: 0, 2: 0 };
+        this.passes = 0;
+        this.gameOver = false;
+        this.koPoint = null;
+        this.lastMove = null;
+
+        // 讀取 UI 設定
+        this.gameMode = document.getElementById('mode-select').value;
+        const handicap = parseInt(document.getElementById('handicap-select').value);
+        
+        // 確保清除舊棋子
+        const oldStones = document.querySelectorAll('.stone');
+        oldStones.forEach(s => s.remove());
+
+        if (handicap > 0) {
+            this.applyHandicap(handicap);
+            this.currentPlayer = 2; // 白棋先
+            
+            if (this.gameMode === 'ai') {
+                this.showStatus(`讓 ${handicap} 子，白棋(AI)思考中...`);
+                this.aiTimeout = setTimeout(() => this.aiMove(), 800);
+            } else {
+                this.showStatus(`讓 ${handicap} 子，輪到白棋(P2)`);
+            }
+        } else {
+            this.currentPlayer = 1; 
+            this.showStatus("新局開始，黑棋先手");
+        }
+
+        this.updateUI();
+    }
+
+    applyHandicap(count) {
+        const stones = [];
+        if (count >= 2) stones.push({r: 2, c: 6}, {r: 6, c: 2}); 
+        if (count >= 3) stones.push({r: 6, c: 6}); 
+        if (count === 3) {
+            stones.length = 0;
+            stones.push({r: 2, c: 6}, {r: 6, c: 2}, {r: 4, c: 4});
+        }
+        if (count >= 4) {
+            stones.length = 0;
+            stones.push({r: 2, c: 2}, {r: 2, c: 6}, {r: 6, c: 2}, {r: 6, c: 6});
+        }
+
+        stones.forEach(pos => {
+            this.board[pos.r][pos.c] = 1;
+        });
+    }
+
+    handleUserClick(r, c) {
+        if (this.gameOver) return;
+
+        // 重點修改：如果是 AI 模式且輪到白棋(AI)，則禁止玩家點擊
+        // 如果是 PvP 模式，任何回合都可以點擊 (由 playMove 內部切換 currentPlayer)
+        if (this.gameMode === 'ai' && this.currentPlayer !== 1) return;
+        
+        // 執行當前玩家的移動 (AI 模式這裡一定是玩家，PvP 模式則是當前輪到的那一方)
+        const result = this.playMove(r, c, this.currentPlayer);
+        
+        if (result.success) {
+            this.passes = 0;
+            
+            const postMoveAction = () => {
+                this.updateUI(); 
+                // 如果是 AI 模式，且剛下完的是黑棋(玩家)，則觸發 AI
+                if (this.gameMode === 'ai' && !this.gameOver && this.currentPlayer === 2) {
+                    this.showStatus("");
+                    this.aiTimeout = setTimeout(() => this.aiMove(), 500);
+                }
+            };
+
+            // 處理提子動畫
+            if (result.captured && result.captured.length > 0) {
+                this.animateCapture(result.captured, postMoveAction);
+            } else {
+                postMoveAction();
+            }
+
+        } else {
+            this.showStatus(result.message);
+        }
+    }
+
+    aiMove() {
+        if (this.gameOver) return;
+        
+        let validMoves = [];
+        for(let r=0; r<9; r++) {
+            for(let c=0; c<9; c++) {
+                if (this.isValidMove(r, c, 2)) {
+                    validMoves.push({r, c});
+                }
+            }
+        }
+
+        if (validMoves.length === 0) {
+            this.pass();
+            return;
+        }
+
+        const move = validMoves[Math.floor(Math.random() * validMoves.length)];
+        const result = this.playMove(move.r, move.c, 2);
+        this.passes = 0;
+
+        if (result.captured && result.captured.length > 0) {
+             this.animateCapture(result.captured, () => {
+                this.updateUI();
+             });
+        } else {
+            this.updateUI();
+        }
+    }
+
+    animateCapture(capturedStones, callback) {
+        capturedStones.forEach(pos => {
+            const stones = document.querySelectorAll('.stone');
+            stones.forEach(stone => {
+                const left = parseInt(stone.style.left);
+                const top = parseInt(stone.style.top);
+                const c = Math.round((left - 5) / 50);
+                const r = Math.round((top - 5) / 50);
+                if (r === pos.r && c === pos.c) {
+                    stone.classList.add('captured-anim');
+                }
+            });
+        });
+        setTimeout(() => callback(), 300);
+    }
+
+    playMove(r, c, player) {
+        if (this.board[r][c] !== 0) return { success: false, message: "此處已有子" };
+        if (this.koPoint && this.koPoint.r === r && this.koPoint.c === c) {
+            return { success: false, message: "禁著點：打劫 (Ko)" };
+        }
+
+        const nextBoard = this.board.map(row => [...row]);
+        nextBoard[r][c] = player;
+        const opponent = player === 1 ? 2 : 1;
+        let capturedStones = [];
+
+        // 檢查提子
+        [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dr, dc]) => {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && nextBoard[nr][nc] === opponent) {
+                const group = this.getGroup(nextBoard, nr, nc);
+                if (this.countLiberties(nextBoard, group) === 0) {
+                    capturedStones.push(...group);
+                }
+            }
+        });
+
+        capturedStones.forEach(pos => nextBoard[pos.r][pos.c] = 0);
+
+        // 檢查自殺
+        const myGroup = this.getGroup(nextBoard, r, c);
+        if (this.countLiberties(nextBoard, myGroup) === 0) {
+            return { success: false, message: "禁著點：自殺" };
+        }
+
+        if (capturedStones.length === 1 && myGroup.length === 1 && this.countLiberties(nextBoard, myGroup) === 1) {
+             this.koPoint = capturedStones[0];
+        } else {
+            this.koPoint = null;
+        }
+
+        this.board = nextBoard;
+        this.prisoners[player] += capturedStones.length;
+        this.lastMove = { r, c };
+        this.currentPlayer = opponent;
+        
+        return { success: true, captured: capturedStones };
+    }
+
+    pass() {
+        if (this.gameOver) return;
+        this.passes++;
+        
+        // 顯示誰 Pass
+        const pName = this.currentPlayer === 1 ? '黑棋' : '白棋';
+        this.showStatus(`${pName} 選擇虛手 (Pass)`);
+        
+        if (this.passes >= 2) {
+            this.endGame();
+        } else {
+            this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+            this.koPoint = null;
+            this.updateUI();
+            
+            // 如果是 AI 模式，且輪到白棋(AI)，則觸發 AI
+            if (this.gameMode === 'ai' && this.currentPlayer === 2) {
+                this.aiTimeout = setTimeout(() => this.aiMove(), 800);
+            }
+        }
+    }
+
+    isValidMove(r, c, player) {
+        if (this.board[r][c] !== 0) return false;
+        if (this.koPoint && this.koPoint.r === r && this.koPoint.c === c) return false;
+        
+        const nextBoard = this.board.map(row => [...row]);
+        nextBoard[r][c] = player;
+        const opponent = player === 1 ? 2 : 1;
+        
+        const directions = [[0,1], [0,-1], [1,0], [-1,0]];
+        directions.forEach(([dr, dc]) => {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && nextBoard[nr][nc] === opponent) {
+                const group = this.getGroup(nextBoard, nr, nc);
+                if (this.countLiberties(nextBoard, group) === 0) {
+                    group.forEach(p => nextBoard[p.r][p.c] = 0); 
+                }
+            }
+        });
+
+        const myGroup = this.getGroup(nextBoard, r, c);
+        if (this.countLiberties(nextBoard, myGroup) === 0) return false; 
+        
+        return true; 
+    }
+
+    getGroup(board, r, c) {
+        const color = board[r][c];
+        const group = [];
+        const visited = new Set();
+        const stack = [{r, c}];
+        while(stack.length > 0) {
+            const curr = stack.pop();
+            const key = `${curr.r},${curr.c}`;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            group.push(curr);
+            [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dr, dc]) => {
+                const nr = curr.r + dr, nc = curr.c + dc;
+                if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && board[nr][nc] === color) stack.push({r: nr, c: nc});
+            });
+        }
+        return group;
+    }
+
+    countLiberties(board, group) {
+        const liberties = new Set();
+        group.forEach(({r, c}) => {
+            [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dr, dc]) => {
+                const nr = r + dr, nc = c + dc;
+                if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9 && board[nr][nc] === 0) liberties.add(`${nr},${nc}`);
+            });
+        });
+        return liberties.size;
+    }
+
+    updateUI() {
+        document.querySelectorAll('.stone').forEach(el => el.remove());
+        
+        // --- 繪製棋子 & 處理 UX 特效 ---
+        const checkedGroups = new Set(); 
+        const stonesDOM = []; // 暫存 DOM 以便稍後加上 Atari 樣式
+
+        for(let r=0; r<9; r++) {
+            for(let c=0; c<9; c++) {
+                if (this.board[r][c] !== 0) {
+                    const stone = document.createElement('div');
+                    const isLastMove = (this.lastMove && this.lastMove.r === r && this.lastMove.c === c);
+                    stone.className = `stone ${this.board[r][c] === 1 ? 'black' : 'white'}`;
+                    
+                    if (isLastMove) {
+                        stone.classList.add('last-move');
+                        stone.classList.add('new-stone');
+                    }
+
+                    stone.style.left = (c * 50 + 5) + 'px';
+                    stone.style.top = (r * 50 + 5) + 'px';
+                    
+                    // UX: 懸停高亮
+                    stone.onmouseenter = () => this.highlightGroup(r, c);
+                    stone.onmouseleave = () => this.clearHighlights();
+
+                    this.gridLayer.appendChild(stone);
+                    stonesDOM.push({r, c, el: stone});
+                }
+            }
+        }
+
+        // --- 處理叫吃 (Atari) 警告 ---
+        const checkedAtari = new Set();
+        stonesDOM.forEach(item => {
+            const key = `${item.r},${item.c}`;
+            if (!checkedAtari.has(key)) {
+                const group = this.getGroup(this.board, item.r, item.c);
+                const libs = this.countLiberties(this.board, group);
+                
+                // 如果這塊棋剩一氣，給這塊棋的所有 DOM 加上警告樣式
+                if (libs === 1) {
+                    group.forEach(g => {
+                        // 找到對應的 DOM
+                        const target = stonesDOM.find(s => s.r === g.r && s.c === g.c);
+                        if (target) target.el.classList.add('atari');
+                    });
+                }
+                group.forEach(g => checkedAtari.add(`${g.r},${g.c}`));
+            }
+        });
+
+        // --- 更新文字 ---
+        let turnText = "";
+        if (this.gameOver) {
+            turnText = "遊戲結束";
+        } else {
+            // 根據模式顯示不同的回合名稱
+            if (this.currentPlayer === 1) {
+                turnText = this.gameMode === 'ai' ? "黑棋 (User)" : "黑棋 (P1)";
+            } else {
+                turnText = this.gameMode === 'ai' ? "白棋 (AI)" : "白棋 (P2)";
+            }
+        }
+
+        document.getElementById('turn-indicator').innerText = `當前回合: ${turnText}`;
+        document.getElementById('score-display').innerText = `黑方獲虜: ${this.prisoners[1]} | 白方獲虜: ${this.prisoners[2]}`;
+    }
+
+    highlightGroup(r, c) {
+        const group = this.getGroup(this.board, r, c);
+        const stones = document.querySelectorAll('.stone');
+        stones.forEach(stone => {
+            const left = parseInt(stone.style.left);
+            const top = parseInt(stone.style.top);
+            const sc = Math.round((left - 5) / 50);
+            const sr = Math.round((top - 5) / 50);
+            
+            const inGroup = group.some(g => g.r === sr && g.c === sc);
+            if (inGroup) {
+                stone.classList.add('group-highlight');
+            }
+        });
+    }
+
+    clearHighlights() {
+        document.querySelectorAll('.stone').forEach(s => s.classList.remove('group-highlight'));
+    }
+
+    showStatus(msg) {
+        document.getElementById('status-msg').innerText = msg;
+    }
+
+    endGame() {
+        this.gameOver = true;
+        this.calculateScore();
+    }
+
+    calculateScore() {
+        let blackScore = 0;
+        let whiteScore = 0;
+        const visited = Array(9).fill().map(() => Array(9).fill(false));
+
+        for(let r=0; r<9; r++) {
+            for(let c=0; c<9; c++) {
+                if (this.board[r][c] === 1) blackScore++;
+                else if (this.board[r][c] === 2) whiteScore++;
+                else if (!visited[r][c]) {
+                    const region = [];
+                    const stack = [{r, c}];
+                    let touchBlack = false, touchWhite = false;
+                    while(stack.length > 0) {
+                        const curr = stack.pop();
+                        if (visited[curr.r][curr.c]) continue;
+                        visited[curr.r][curr.c] = true;
+                        region.push(curr);
+                        [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dr, dc]) => {
+                            const nr = curr.r + dr, nc = curr.c + dc;
+                            if (nr >= 0 && nr < 9 && nc >= 0 && nc < 9) {
+                                if (this.board[nr][nc] === 0 && !visited[nr][nc]) stack.push({r: nr, c: nc});
+                                else if (this.board[nr][nc] === 1) touchBlack = true;
+                                else if (this.board[nr][nc] === 2) touchWhite = true;
+                            }
+                        });
+                    }
+                    if (touchBlack && !touchWhite) blackScore += region.length;
+                    else if (!touchBlack && touchWhite) whiteScore += region.length;
+                }
+            }
+        }
+        
+        const handicap = parseInt(document.getElementById('handicap-select').value);
+        const komi = handicap > 0 ? 0.5 : 5.5;
+        const finalWhite = whiteScore + komi;
+
+        let resultMsg = `終局決算 (中國數子法):\n`;
+        resultMsg += `----------------\n`;
+        resultMsg += `黑棋: ${blackScore} (子+地)\n`;
+        resultMsg += `白棋: ${whiteScore} + ${komi}(貼目) = ${finalWhite}\n`;
+        resultMsg += `----------------\n`;
+        resultMsg += blackScore > finalWhite ? "🏆 黑棋勝!" : "🏆 白棋勝!";
+        
+        alert(resultMsg);
+        this.showStatus(blackScore > finalWhite ? "黑棋勝" : "白棋勝");
+    }
+}
+
+const game = new GoGame();
+</script>
+</body>
+</html>
