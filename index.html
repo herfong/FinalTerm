@@ -313,10 +313,10 @@ class GoGame {
             this.currentPlayer = 2; // 白棋先
             
             if (this.gameMode === 'ai') {
-                this.showStatus(`讓 ${handicap} 子，白棋(AI)思考中...`,1000);
+                this.showStatus(`讓 ${handicap} 子，白棋(AI)思考中...`);
                 this.aiTimeout = setTimeout(() => this.aiMove(), 800);
             } else {
-                this.showStatus(`讓 ${handicap} 子，輪到白棋(P2)`,1000);
+                this.showStatus(`讓 ${handicap} 子，輪到白棋(P2)`);
             }
         } else {
             this.currentPlayer = 1; 
@@ -474,7 +474,7 @@ class GoGame {
         
         // 顯示誰 Pass
         const pName = this.currentPlayer === 1 ? '黑棋' : '白棋';
-        this.showStatus(`${pName} 選擇虛手 (Pass)`,1000);
+        this.showStatus(`${pName} 選擇虛手 (Pass)`);
         
         if (this.passes >= 2) {
             this.endGame();
@@ -703,7 +703,7 @@ class GoGame {
         resultMsg += blackScore > finalWhite ? "🏆 黑棋勝!" : "🏆 白棋勝!";
         
         alert(resultMsg);
-        this.showStatus(blackScore > finalWhite ? "黑棋勝" : "白棋勝", 5000);
+        this.showStatus(blackScore > finalWhite ? "黑棋勝" : "白棋勝");
     }
 }
 
